@@ -42,7 +42,10 @@ def request_dispatcher(dispatcher: Address) -> None:
             # send a test request for given commit id to the dispatcher server
             response = helpers.communicate(dispatcher.host,
                                            dispatcher.port,
-                                           f"commit {commit}")
+                                           f"dispatch:{commit}")
+            if response == "Invalid command":
+                print(response)
+                raise InvalidResponse(f"Could not dispatch the test: {response}")
             if response != "OK":
                 raise BusyServer(f"Could not dispatch the test: {response}")
             print("dispatched!")

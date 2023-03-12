@@ -106,14 +106,16 @@ class TestHandler(socketserver.BaseRequestHandler):
         test_folder = os.path.join(repo_folder, "tests")
         # loads all the tests for the given commit
         suite = unittest.TestLoader().discover(test_folder)
-        with open("results", "w", encoding="utf-8") as result_file:
+        with open("results.txt", "w", encoding="utf-8") as result_file:
             unittest.TextTestRunner(result_file).run(suite)
-        with open("results", "r", encoding="utf-8") as result_file:
-            # give the dispatcher the results
+        output: str
+        with open("results.txt", "r", encoding="utf-8") as result_file:
             output = result_file.read()
-            helpers.communicate(self.server.dispatcher_server.host,
-                                self.server.dispatcher_server.port,
-                                f"results:{commit_id}:{len(output)}:{output}")
+        os.remove("results.txt")
+        # give the dispatcher the results
+        helpers.communicate(self.server.dispatcher_server.host,
+                            self.server.dispatcher_server.port,
+                            f"results:{commit_id}:{len(output)}:{output}")
 
 
 def connect_range(runner: Address, tries: int) -> Optional[Tester]:

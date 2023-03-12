@@ -65,7 +65,7 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
     """
     # matches commands like "commit:commit_id" and creates command and target groups
     command_re = re.compile(r"(\w+)(:.+)*")
-    BUF_SIZE = 1024
+    BUF_SIZE = 1024    # 1 KiB
 
     def handle(self) -> None:
         """
@@ -78,62 +78,71 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
                 accepts the results of a test and write it to a file
         """
         assert isinstance(self.server, Dispatcher)
-
+        # recv is a blocking call that reads n bytes from the socket o
+        # or less if the socket is empty/closed
         self.data = self.request.recv(self.BUF_SIZE).strip().decode("utf-8")
         command_groups = self.command_re.match(self.data)
         if not command_groups:
             self.request.sendall("Invalid command".encode())
             logger.info("Invalid command")
             return
+
         command = command_groups.group(1)
+        match command:
+            case "status":
+                logger.debug("status request")
+                self.request.sendall("OK".encode())
+            case "register":
+                # Add this test runner to the pool
+                logger.debug("register request")
+                address = command_groups.group(2)[1:]
+                runner = Address(address.split(":")[0], int(address.split(":")[1]))
+                self.server.runners.append(runner)
+                self.request.sendall("OK".encode())
+            case "dispatch":
+                logger.debug("dispatch request")
+                commit_id = command_groups.group(2)[1:]
+                if not self.server.runners:
+                    self.request.sendall("No runners registered")
+                    logger.warning("out of runners")
+                    return
+                # now we guarantee to dispatch the test
+                self.request.sendall("OK".encode())
+                dispatch_tests(self.server, commit_id)
+            case "results":
+                logger.debug("result request")
+                commit_id, result_len, _ = command_groups.group(2)[1:].split(":")
+                if commit_id not in self.server.dispatched_commits:
+                    # we didn't dispatch this commit
+                    self.request.sendall("Invalid Command".encode())
+                    logger.error("Invalid commit id %s", commit_id)
+                    return
+                del self.server.dispatched_commits[commit_id]
+                # there were 3 ":" in the sent command
+                # size of the remaining data after the command, commit_id, and result_len
+                remaining = self.BUF_SIZE - \
+                    (len(command) + len(commit_id) + len(result_len) + 3)
 
-        if command == "status":
-            logger.debug("status request")
-            self.request.sendall("OK".encode())
-        elif command == "register":
-            # Add this test runner to the pool
-            logger.debug("register request")
-            address = command_groups.group(2)[1:]
-            runner = Address(address.split(":")[0], int(address.split(":")[1]))
-            self.server.runners.append(runner)
-            self.request.sendall("OK".encode())
-        elif command == "dispatch":
-            logger.debug("dispatch request")
-            commit_id = command_groups.group(2)[1:]
-            if not self.server.runners:
-                self.request.sendall("No runners registered")
-                logger.warning("out of runners")
-                return
-            # now we guarantee to dispatch the test
-            self.request.sendall("OK".encode())
-            dispatch_tests(self.server, commit_id)
-        elif command == "result":
-            logger.debug("result request")
-            commit_id, result_len, = command_groups.group(2)[1:].split(":")
-            # there were 3 ":" in the sent command
-            # size of the remaining data after the command, commit_id, and result_len
-            remaining = self.BUF_SIZE - \
-                (len(command) + len(commit_id) + len(result_len) + 3)
-            if int(result_len) > remaining:
-                # add the extra data if needed
-                self.data = (self.data.encode() +
-                             self.request.recv(int(result_len) - remaining).strip()).decode()
-            # remove it from dispatched commits since it is done
-            del self.server.dispatched_commits[commit_id]
-            if not os.path.exists("test_results"):
-                logger.info("creating test_results directory")
-                os.mkdir("test_results")
-            with open(f"test_results/{commit_id}", "w", encoding="utf-8") as f:
-                # data has the guaranteed full results
-                # we split every test result and write it
-                data = self.data.split(":")[3:]
-                data = "\n".join(data)
-                f.write(data)
-
-            self.request.sendall("OK".encode())
-        else:
-            self.request.sendall("Invalid command".encode())
-            logger.info("Invalid command")
+                # if there's more data, we need to read it
+                if int(result_len) > remaining:
+                    # note subsequent calls to recv pick up where left off
+                    self.data = (self.data.encode() +
+                                 self.request.recv(int(result_len) - remaining).strip()).decode()
+                # remove it from dispatched commits since it is done
+                del self.server.dispatched_commits[commit_id]
+                if not os.path.exists("test_results"):
+                    logger.info("creating test_results directory")
+                    os.mkdir("test_results")
+                with open(f"test_results/{commit_id}", "w", encoding="utf-8") as resultfile:
+                    # data has the guaranteed full results
+                    # we split every test result and write it
+                    data = self.data.split(":")[3:]
+                    data = "\n".join(data)
+                    resultfile.write(data)
+                self.request.sendall("OK".encode())
+            case _:
+                self.request.sendall("Invalid command".encode())
+                logger.info("Invalid command %s from %s", command, self.data)
 
 
 def dispatch_tests(server: Dispatcher, commit_id: str) -> None:

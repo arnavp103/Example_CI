@@ -1,0 +1,23 @@
+FF..
+======================================================================
+FAIL: test_bad_math (test_fail.TestFail)
+Test that fails
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspaces/Example_CI/test_repo_clone_runner/tests/test_fail.py", line 12, in test_bad_math
+    self.assertEqual(1 + 1, 3)
+AssertionError: 2 != 3
+
+======================================================================
+FAIL: test_fail (test_fail.TestFail)
+Test that fails
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspaces/Example_CI/test_repo_clone_runner/tests/test_fail.py", line 8, in test_fail
+    self.assertTrue(False)
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.002s
+
+FAILED (failures=2)
