@@ -1,1 +1,5 @@
 test_repo*
+pyvenv*
+.vscode
+__pycache__
+tests
