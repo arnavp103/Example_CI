@@ -1,7 +1,6 @@
-"""A general module for exceptions relating to the distributed system
-
 """
-
+A general module for exceptions relating to the distributed system
+"""
 
 class InvalidCommand(Exception):
     """A server will respond with this error

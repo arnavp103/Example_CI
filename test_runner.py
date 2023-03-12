@@ -100,7 +100,7 @@ class TestHandler(socketserver.BaseRequestHandler):
 
         # setup: update repo to the commit id state
         subprocess.call(["./test_runner_script.sh",
-                                        repo_folder, commit_id])
+                            repo_folder, commit_id])
         # run the tests
         # NOTE: We only run the tests in the tests folder
         test_folder = os.path.join(repo_folder, "tests")
