@@ -11,13 +11,13 @@ import subprocess
 import os
 import socket
 import time
-from typing import NoReturn, Type
+from typing import NoReturn
 
 import helpers
 from helpers import Address
 from exceptions import InvalidResponse, BusyServer
 
-def request_dispatcher(dispatcher: Type[Address]) -> None:
+def request_dispatcher(dispatcher: Address) -> None:
     """Sends a request to the dispatcher server to dispatch a test
     for the latest commit
     Example:
@@ -85,9 +85,9 @@ def poll() -> NoReturn:
             subprocess.call(["./update_repo.sh", args.repo],
                                     stderr=subprocess.STDOUT)
             if os.path.isfile(".commit_id"):
-                request_dispatcher(Address(dispatcher_host, dispatcher_port))
+                request_dispatcher(Address(dispatcher_host, int(dispatcher_port)))
         except subprocess.CalledProcessError as err:
-            raise subprocess.CalledProcessError("Could not update and check repository. " +
+            raise subprocess.CalledProcessError(err.returncode, "Could not update and check repository. " +
                             f"Reason: {err.output}", "update_repo.sh")
         # repeat the process every 5 seconds
         time.sleep(5)

@@ -7,9 +7,7 @@ rm -f .commit_id
 
 # verifies the repo we're observing exists
 run_or_fail "Repository folder not found!" pushd $1 1> /dev/null
-pwd
-git reflog
-exit 0
+
 # clean up if we go out of sync
 run_or_fail "Could not reset git" git reset --hard HEAD
 

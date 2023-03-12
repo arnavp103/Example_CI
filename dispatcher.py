@@ -14,7 +14,7 @@ import socketserver
 import time
 import os
 import re
-from typing import Type, List, Dict, NoReturn
+from typing import List, Dict
 import logging
 
 import helpers
@@ -45,14 +45,14 @@ class Dispatcher(socketserver.ThreadingMixIn, socketserver.TCPServer):
     TODO: Augment this to have a list of last dispatched to
       test runners to do some load balancing
     Fields:
-        runners: List[Type[Address]] - Keeps track of test runner pool
+        runners: List[Address] - Keeps track of test runner pool
         dead: bool - Indicate to other threads that we are no longer running
-        dispatched_commits: Dict[<commit_id>, Type[Address]] - Keeps track of commits we dispatched
+        dispatched_commits: Dict[<commit_id>, Address] - Keeps track of commits we dispatched
         pending_commits: List[<commit_id>] - Keeps track of commits we have yet to dispatch
     """
-    runners: List[Type[Address]] = []
+    runners: List[Address] = []
     dead = False
-    dispatched_commits: Dict[str, Type[Address]] = {}
+    dispatched_commits: Dict[str, Address] = {}
     pending_commits: List[str] = []
 
 
@@ -136,7 +136,7 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
             logger.info("Invalid command")
 
 
-def dispatch_tests(server: Type[Dispatcher], commit_id: str) -> None:
+def dispatch_tests(server: Dispatcher, commit_id: str) -> None:
     """
     shared dispatcher code
     sends a runtest request to a free test runner
@@ -164,7 +164,7 @@ def dispatch_tests(server: Type[Dispatcher], commit_id: str) -> None:
         time.sleep(2)
 
 
-def serve() -> NoReturn:
+def serve() -> None:
     """
     Starts the dispatcher server
     Opens a socket on the given host and port
@@ -184,7 +184,7 @@ def serve() -> NoReturn:
     server = Dispatcher((args.host, int(args.port)), DispatcherHandler)
     logger.debug("Serving on %s:%s", args.host, args.port)
 
-    def runner_checker(server: Type[Dispatcher]) -> NoReturn:
+    def runner_checker(server: Dispatcher) -> None:
         """
         heartbeats are sent every 2 seconds
         pings the test runners to see if they are alive
@@ -216,7 +216,7 @@ def serve() -> NoReturn:
             time.sleep(2)
 
     # assigns pending commits to test runners
-    def redistribute(server: Type[Dispatcher]) -> NoReturn:
+    def redistribute(server: Dispatcher) -> None:
         while not server.dead:
             # how is this not a race
             for commit in server.pending_commits:

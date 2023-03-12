@@ -26,3 +26,8 @@ class DroppedConnection(Exception):
     The dispatcher will raise this error
     when it loses connection with a worker
     """
+
+class FailedSetup(Exception):
+    """A server will raise this error when they cannot setup
+    their socket connection
+    """
