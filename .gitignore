@@ -1,6 +1,6 @@
 test_repo*
+test_results*
 pyvenv*
 __pycache__
-tests
 .*
 spam.log

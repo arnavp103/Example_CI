@@ -14,6 +14,7 @@ import socketserver
 import time
 import os
 import re
+import copy
 from typing import List, Dict
 import logging
 
@@ -117,23 +118,25 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
                     self.request.sendall("Invalid Command".encode())
                     logger.error("Invalid commit id %s", commit_id)
                     return
+
+                logger.debug("commit id %s has been serviced by %s", commit_id,
+                             self.server.dispatched_commits[commit_id])
                 del self.server.dispatched_commits[commit_id]
+
                 # there were 3 ":" in the sent command
                 # size of the remaining data after the command, commit_id, and result_len
                 remaining = self.BUF_SIZE - \
                     (len(command) + len(commit_id) + len(result_len) + 3)
-
                 # if there's more data, we need to read it
                 if int(result_len) > remaining:
                     # note subsequent calls to recv pick up where left off
                     self.data = (self.data.encode() +
                                  self.request.recv(int(result_len) - remaining).strip()).decode()
-                # remove it from dispatched commits since it is done
-                del self.server.dispatched_commits[commit_id]
+
                 if not os.path.exists("test_results"):
                     logger.info("creating test_results directory")
                     os.mkdir("test_results")
-                with open(f"test_results/{commit_id}", "w", encoding="utf-8") as resultfile:
+                with open(f"test_results/{commit_id}.txt", "w", encoding="utf-8") as resultfile:
                     # data has the guaranteed full results
                     # we split every test result and write it
                     data = self.data.split(":")[3:]
@@ -201,13 +204,16 @@ def serve() -> None:
         """
         # goes through the dispatched commits and
         # reassigns every single commit assigned to runner to pending
-        def remove_runner(runner):
-            for commit, assigned_runner in server.dispatched_commits.items():
-                if assigned_runner == runner:
-                    del server.dispatched_commits[commit]
-                    server.pending_commits.append(commit)
-                    del server.runners[server.runners.index(runner)]
+        def remove_runner(runner: Address) -> None:
+            rcopy = copy.copy(runner)
+            server.runners.remove(runner)
+            for commit_id, assigned_runner in server.dispatched_commits.items():
+                if assigned_runner == rcopy:
+                    # this makes changes to the thread
+                    del server.dispatched_commits[commit_id]
+                    server.pending_commits.append(commit_id)
                     break
+
         while not server.dead:
             for runner in server.runners:
                 try:
