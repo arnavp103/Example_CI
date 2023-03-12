@@ -146,7 +146,7 @@ def dispatch_tests(server: Type[Dispatcher], commit_id: str) -> None:
     """
     # NOTE: usually we don't run this forever
     while True:
-        logger.debug("trying to dispatch to runners")
+        logger.debug("dispatch to runners...")
         # note that if there are many runners
         # the load will be heavily skewed to the first ones in the list
         # TODO: asyncio to send every test at once
@@ -155,7 +155,8 @@ def dispatch_tests(server: Type[Dispatcher], commit_id: str) -> None:
                                            runner.port,
                                            f"runtest:{commit_id}")
             if response == "OK":
-                logger.debug("adding id %s", commit_id)
+                logger.debug("adding id %s to %s:%s",
+                             commit_id, runner.host, runner.port)
                 server.dispatched_commits[commit_id] = runner
                 if commit_id in server.pending_commits:
                     server.pending_commits.remove(commit_id)

@@ -185,7 +185,7 @@ def serve() -> NoReturn:
     if response != "OK":
         raise InvalidResponse("Can't register with dispatcher!")
 
-    def dispatcher_checker(server):
+    def dispatcher_checker(server: Type[Tester]):
         """
         Checks if the dispatcher went down. If it is down, we will shut down
         if since the dispatcher may not have the same host/port
@@ -197,8 +197,8 @@ def serve() -> NoReturn:
             if (time.time() - server.last_ping) > 10:
                 try:
                     response = helpers.communicate(
-                                       server.dispatcher_server["host"],
-                                       int(server.dispatcher_server["port"]),
+                                       server.dispatcher_server.host,
+                                       int(server.dispatcher_server.port),
                                        "status")
                     if response != "OK":
                         print("Dispatcher is no longer functional")

@@ -82,14 +82,14 @@ def poll() -> NoReturn:
             # call the bash script that will update the repo and check
             # for changes. If there's a change, it will drop a .commit_id file
             # with the latest commit in the current working directory
-            subprocess.check_output(["./update_repo.sh", args.repo])
+            subprocess.call(["./update_repo.sh", args.repo],
+                                    stderr=subprocess.STDOUT)
             if os.path.isfile(".commit_id"):
                 request_dispatcher(Address(dispatcher_host, dispatcher_port))
-                # repeat the process every 5 seconds
-                time.sleep(5)
         except subprocess.CalledProcessError as err:
             raise subprocess.CalledProcessError("Could not update and check repository. " +
-                            f"Reason: {err}", "update_repo.sh")
-
+                            f"Reason: {err.output}", "update_repo.sh")
+        # repeat the process every 5 seconds
+        time.sleep(5)
 if __name__ == "__main__":
     poll()

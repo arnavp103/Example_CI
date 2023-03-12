@@ -4,6 +4,7 @@ run_or_fail() {
   shift 1
   # run the command
   "$@"
+  # if the command failed, exit with an error message
   if [ $? != 0 ]; then
     # echo the error message to stderr
     echo $explanation 1>&2
