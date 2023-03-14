@@ -4,3 +4,12 @@ pyvenv*
 __pycache__
 .*
 spam.log
+
+*.pyc
+instance/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/

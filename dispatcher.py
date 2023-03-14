@@ -181,8 +181,8 @@ def serve() -> None:
     Starts the dispatcher server
     Opens a socket on the given host and port
     Services requests from the observer and test runners using DispatcherHandler
-
     """
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--host",
                         help="dispatcher's host, by default it uses localhost",
