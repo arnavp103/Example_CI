@@ -1,0 +1,15 @@
+{
+	"commit_id": "1234567890",
+	"results": [{
+		"type": "error",
+		"test_name": "test_app",
+		"reasons": ["ImportError \n- Failed to import test module test_pass",
+					"Traceback (most recent call last) \n- File \"/Example_CI/clone_runner/tests/test_pass.py\", line 3, in <module> \n- import app",
+					"ModuleNotFoundError \n- No module named 'app'"]
+	},
+	{
+		"type": "fail",
+		"test_name": "test_math",
+		"reasons": ["AssertionError \n- assert 2 == 3", "Traceback (most recent call last) \n- File \"/Example_CI/clone_runner/tests/test_math.py\", line 5, in test_add \n- assert add(1, 1) == 3"]
+	}]
+}
