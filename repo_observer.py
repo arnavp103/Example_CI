@@ -57,7 +57,7 @@ def request_dispatcher(dispatcher: Address) -> None:
 def poll() -> NoReturn:
     """In charge of polling the repo and asking the dispatcher
     to handle test runs if there's been new commits
-
+    Needs a mirror of the repository to poll that should be capable of git pull-ing from the original
     Example:
         python repo_observer.py --dispatcher-server=localhost:8888 test_repo_clone_obs/
 

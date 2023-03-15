@@ -3,7 +3,7 @@ The orchestrator of the test runners
 In charge of dispatching commits to test runners
 Listens on a socket for requests from test runners and observer
 Gracefully handles potential errors with test runners
-
+It then sends a copy of the test results to every subscriber
 Fault tolerant: against test runners crashing, against sockets crashing
 """
 
@@ -74,13 +74,14 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
         4 commands are supported:
             status - checks if the dispatcher is alive
             register:<runner_addr> - registers a test runner with the dispatcher
+            subscribe:<viewer_addr> - subscribe to get sent the latest test results
             dispatch:<commit_id> - dispatches a test to a test runner
             results:<commit_id>:<len(result_data) as bytes>:<results> - \
                 accepts the results of a test and write it to a file
         """
         assert isinstance(self.server, Dispatcher)
-        # recv is a blocking call that reads n bytes from the socket o
-        # or less if the socket is empty/closed
+        assert isinstance(self.request, socket.socket) # default for tcp servs
+
         self.data = self.request.recv(self.BUF_SIZE).strip().decode("utf-8")
         command_groups = self.command_re.match(self.data)
         if not command_groups:
@@ -93,26 +94,30 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
             case "status":
                 logger.debug("status request")
                 self.request.sendall("OK".encode())
+
             case "register":
                 # Add this test runner to the pool
                 logger.debug("register request")
-                address = command_groups.group(2)[1:]
+                address = command_groups.group(2)[1:] # first char is :
                 runner = Address(address.split(":")[0], int(address.split(":")[1]))
                 self.server.runners.append(runner)
                 self.request.sendall("OK".encode())
+
             case "dispatch":
                 logger.debug("dispatch request")
                 commit_id = command_groups.group(2)[1:]
                 if not self.server.runners:
-                    self.request.sendall("No runners registered")
+                    self.request.sendall("No runners registered".encode())
                     logger.warning("out of runners")
                     return
                 # now we guarantee to dispatch the test
                 self.request.sendall("OK".encode())
                 dispatch_tests(self.server, commit_id)
+
             case "results":
                 logger.debug("result request")
                 commit_id, result_len, _ = command_groups.group(2)[1:].split(":")
+
                 if commit_id not in self.server.dispatched_commits:
                     # we didn't dispatch this commit
                     self.request.sendall("Invalid Command".encode())
@@ -122,31 +127,34 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
                 logger.debug("commit id %s has been serviced by %s", commit_id,
                              self.server.dispatched_commits[commit_id])
                 del self.server.dispatched_commits[commit_id]
+                # receive the rest of the data if there is any
+                self.request, self.data = helpers.receive_len(self.request, self.data)
 
-                # there were 3 ":" in the sent command
-                # size of the remaining data after the command, commit_id, and result_len
-                remaining = self.BUF_SIZE - \
-                    (len(command) + len(commit_id) + len(result_len) + 3)
-                # if there's more data, we need to read it
-                if int(result_len) > remaining:
-                    # note subsequent calls to recv pick up where left off
-                    self.data = (self.data.encode() +
-                                 self.request.recv(int(result_len) - remaining).strip()).decode()
-
-                if not os.path.exists("test_results"):
-                    logger.info("creating test_results directory")
-                    os.mkdir("test_results")
-                with open(f"test_results/{commit_id}.txt", "w", encoding="utf-8") as resultfile:
-                    # data has the guaranteed full results
-                    # we split every test result and write it
-                    data = self.data.split(":")[3:]
-                    data = "\n".join(data)
-                    resultfile.write(data)
+                create_result_file(commit_id, self.data)
                 self.request.sendall("OK".encode())
+
             case _:
                 self.request.sendall("Invalid command".encode())
                 logger.info("Invalid command %s from %s", command, self.data)
 
+
+
+def create_result_file(commit_id: str, results: str) -> None:
+    """
+    Creates a file with the results of the test
+    The file will be stored in the test_results directory
+    If the directory does not exist, it will be created
+    It preprocesses the results to add newlines
+    """
+    if not os.path.exists("test_results"):
+        logger.info("creating test_results directory")
+        os.mkdir("test_results")
+    with open(f"test_results/{commit_id}.txt", "w", encoding="utf-8") as resultfile:
+        # data has the guaranteed full results
+        # we split every test result and write it
+        data = results.split(":")[3:]
+        data = "\n".join(data)
+        resultfile.write(results)
 
 def dispatch_tests(server: Dispatcher, commit_id: str) -> None:
     """
@@ -182,7 +190,7 @@ def serve() -> None:
     Opens a socket on the given host and port
     Services requests from the observer and test runners using DispatcherHandler
     """
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--host",
                         help="dispatcher's host, by default it uses localhost",
@@ -253,6 +261,9 @@ def serve() -> None:
         server.dead = True
         runner_heartbeat.join()
         redistributor.join()
+        logger.info("Dispatcher shutting down")
+        server.server_close()
+
 
 
 if __name__ == "__main__":

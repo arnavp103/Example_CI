@@ -11,11 +11,12 @@ import threading
 import socketserver
 import os
 import re
-from typing import Optional, NoReturn
+from typing import Optional
 import argparse
 import subprocess
 import unittest
 import errno
+import io
 
 import helpers
 from helpers import Address
@@ -74,26 +75,26 @@ class TestHandler(socketserver.BaseRequestHandler):
             self.server.last_ping = time.time()
             self.request.sendall("pong".encode())
         elif command == "runtest":
-            print(f"runtest request - busy:{self.server.busy}")
             if self.server.busy:
+                print(f"runtest request - BUSY")
                 self.request.sendall("BUSY".encode())
             else:
                 self.request.sendall("OK".encode())
-                print("running")
                 commit_id = command_groups.group(2)[1:]
+                print(f"runtest request - OK:{commit_id}")
                 self.server.busy = True
                 self.run_tests(commit_id, self.server.repo_folder)
                 self.server.busy = False
         else:
             self.request.sendall("Invalid command".encode())
 
-    # get the test runner server to actually run the tests
-    # this runs the test in a separate process
-    # this allows the runner to service respond to heartbeats and not get dropped
+
     def run_tests(self, commit_id: str, repo_folder: os.PathLike) -> None:
         """
-        runs the tests for the given commit
-        returns the results to the dispatcher im a message
+        Runs the tests for the given commit.
+        Returns the results to the dispatcher in a message.
+         -- TODO: not yet This runs the test in a separate process.
+        This allows the runner to service respond to heartbeats and not get dropped.
         """
         # this should only be called by the test runner server
         assert isinstance(self.server, Tester)
@@ -105,17 +106,18 @@ class TestHandler(socketserver.BaseRequestHandler):
         # NOTE: We only run the tests in the tests folder
         test_folder = os.path.join(repo_folder, "tests")
         # loads all the tests for the given commit
-        suite = unittest.TestLoader().discover(test_folder)
-        with open("results.txt", "w", encoding="utf-8") as result_file:
-            unittest.TextTestRunner(result_file).run(suite)
-        output: str
-        with open("results.txt", "r", encoding="utf-8") as result_file:
-            output = result_file.read()
-        os.remove("results.txt")
-        # give the dispatcher the results
-        helpers.communicate(self.server.dispatcher_server.host,
-                            self.server.dispatcher_server.port,
-                            f"results:{commit_id}:{len(output)}:{output}")
+        suite = unittest.TestLoader().discover(
+                test_folder, top_level_dir=self.server.repo_folder) # type: ignore
+
+
+        with io.StringIO() as output:
+            # writes newlines as '\n' no matter how textTestRunner returns them
+            unittest.TextTestRunner(stream=output).run(suite)
+            content = output.getvalue()
+            # give the dispatcher the results
+            helpers.communicate(self.server.dispatcher_server.host,
+                                self.server.dispatcher_server.port,
+                                f"results:{commit_id}:{len(content)}:{content}")
 
 
 def connect_range(runner: Address, tries: int) -> Optional[Tester]:
@@ -133,6 +135,7 @@ def connect_range(runner: Address, tries: int) -> Optional[Tester]:
         try:
             server = Tester((runner.host, runner_port), TestHandler)
             print(runner_port)
+            runner.port = runner_port
             return server
         # loop through 100 ports
         except socket.error as err:
@@ -228,16 +231,16 @@ def serve() -> None:
         # this will keep running until we interrupt the program with Ctrl-C
         server.serve_forever()
     except KeyboardInterrupt:
-        # if any exception occurs, kill the thread
         server.dead = True
         heartbeat.join()
         print("Shutting down server")
+        server.server_close()
     except Exception as err:
         server.dead = True
         heartbeat.join()
         print(f"Unexpected error: {err}")
         print("Shutting down server")
-
+        server.server_close()
 
 if __name__ == "__main__":
     serve()
