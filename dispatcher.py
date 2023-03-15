@@ -123,10 +123,10 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
                     self.request.sendall("Invalid Command".encode())
                     logger.error("Invalid commit id %s", commit_id)
                     return
-
                 logger.debug("commit id %s has been serviced by %s", commit_id,
                              self.server.dispatched_commits[commit_id])
                 del self.server.dispatched_commits[commit_id]
+                
                 # receive the rest of the data if there is any
                 self.request, self.data = helpers.receive_len(self.request, self.data)
 
