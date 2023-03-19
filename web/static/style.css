@@ -82,6 +82,8 @@ main {
 	text-align: left;
 	flex: 1;
 	white-space: pre-wrap;
+	word-wrap: break-word;
+	font-size: medium;
 }
 
 .error {

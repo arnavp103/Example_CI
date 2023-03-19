@@ -1,6 +1,6 @@
 """
 The observer is a script that sends socket messages, but doesn't receive
-It polls a downstream cloned repository for changes
+It polls a downstream cloned repository for changes (test_repos/sample_app_clone_obs/)
 It pulls those changes and checks if there are any new commits
 If there are new commits, it sends a request to the dispatcher server
 to dispatch a test for the latest commit
@@ -59,7 +59,7 @@ def poll() -> NoReturn:
     to handle test runs if there's been new commits
     Needs a mirror of the repository to poll that should be capable of git pull-ing from the original
     Example:
-        python repo_observer.py --dispatcher-server=localhost:8888 test_repo_clone_obs/
+        python repo_observer.py --dispatcher-server=localhost:8888 test_repo_clone_obs
 
     Returns:
 		Runs indefinitely, polling the repo and sending requests to the dispatcher

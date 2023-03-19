@@ -3,7 +3,7 @@ test_results*
 pyvenv*
 __pycache__
 .*
-spam.log
+*.log
 
 *.pyc
 instance/

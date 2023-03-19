@@ -1,7 +1,7 @@
 """
 The test runner worker servers.
 The test runner requires a clone of the repo to run tests on.
-In this example, that's test_repo_clone_runner/
+In this example, that's test_repos/sample_app_clone_runner/
 Handles testrun requests in a separate process and sends the results back to the dispatcher
 """
 

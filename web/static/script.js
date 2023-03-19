@@ -47,7 +47,7 @@ const popluateHeadline = (results) => {
 	}, 0);
 
 	if (!errors && !fails) {
-		headline.textContent = "All tests passed";
+		headline.innerHTML = "All tests passed";
 		headline.classList.add("passed");
 	} else {
 		headline.innerHTML = `We found `;

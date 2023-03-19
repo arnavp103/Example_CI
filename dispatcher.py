@@ -3,7 +3,8 @@ The orchestrator of the test runners
 In charge of dispatching commits to test runners
 Listens on a socket for requests from test runners and observer
 Gracefully handles potential errors with test runners
-It then sends a copy of the test results to every subscriber
+Writes the results to a txt file (and optionally a json file from the args) for other processes to use
+
 Fault tolerant: against test runners crashing, against sockets crashing
 """
 
@@ -13,9 +14,10 @@ import threading
 import socketserver
 import time
 import os
+import json
 import re
 import copy
-from typing import List, Dict
+from typing import List, Dict, Optional
 import logging
 
 import helpers
@@ -50,12 +52,13 @@ class Dispatcher(socketserver.ThreadingMixIn, socketserver.TCPServer):
         dead: bool - Indicate to other threads that we are no longer running
         dispatched_commits: Dict[<commit_id>, Address] - Keeps track of commits we dispatched
         pending_commits: List[<commit_id>] - Keeps track of commits we have yet to dispatch
+        target: Optional[os.PathLike] - Holds the path to the folder to write the json upon dispatch results
     """
     runners: List[Address] = []
     dead = False
     dispatched_commits: Dict[str, Address] = {}
     pending_commits: List[str] = []
-
+    target: Optional[os.PathLike] = None
 
 class DispatcherHandler(socketserver.BaseRequestHandler):
     """
@@ -74,10 +77,9 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
         4 commands are supported:
             status - checks if the dispatcher is alive
             register:<runner_addr> - registers a test runner with the dispatcher
-            subscribe:<viewer_addr> - subscribe to get sent the latest test results
             dispatch:<commit_id> - dispatches a test to a test runner
             results:<commit_id>:<len(result_data) as bytes>:<results> - \
-                accepts the results of a test and write it to a file
+                accepts the results of a test and write it to a txt file, and maybe a json file
         """
         assert isinstance(self.server, Dispatcher)
         assert isinstance(self.request, socket.socket) # default for tcp servs
@@ -116,7 +118,7 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
 
             case "results":
                 logger.debug("result request")
-                commit_id, result_len, _ = command_groups.group(2)[1:].split(":")
+                commit_id, _, _ = command_groups.group(2)[1:].split(":")
 
                 if commit_id not in self.server.dispatched_commits:
                     # we didn't dispatch this commit
@@ -126,11 +128,13 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
                 logger.debug("commit id %s has been serviced by %s", commit_id,
                              self.server.dispatched_commits[commit_id])
                 del self.server.dispatched_commits[commit_id]
-                
+
                 # receive the rest of the data if there is any
                 self.request, self.data = helpers.receive_len(self.request, self.data)
 
                 create_result_file(commit_id, self.data)
+                if self.server.target:
+                    create_json_result_file(commit_id, self.data, self.server.target)
                 self.request.sendall("OK".encode())
 
             case _:
@@ -150,17 +154,58 @@ def create_result_file(commit_id: str, results: str) -> None:
         logger.info("creating test_results directory")
         os.mkdir("test_results")
     with open(f"test_results/{commit_id}.txt", "w", encoding="utf-8") as resultfile:
-        # data has the guaranteed full results
-        # we split every test result and write it
-        data = results.split(":")[3:]
-        data = "\n".join(data)
         resultfile.write(results)
+
+def create_json_result_file(commit_id: str, results: str, path: os.PathLike) -> None:
+    """
+    Creates a file with the results of the test
+    The file will be stored in the results directory command line arg
+    If the directory was not passed, do nothing
+    It preprocesses the results to add newlines
+    """
+    if not os.path.exists(path):
+        logger.info("creating results directory at %s", path)
+        os.mkdir(path)
+
+    results_obj = {"commit_id": commit_id, "results": []}
+
+    results = results.strip()
+    if results[-2] == "OK":
+        pass
+    else:
+        for result in results.split('='*70)[1:]:
+            logger.debug("result: %s", result)
+            result_obj = {}
+
+            if result[:result.index(':')].strip() == "FAIL":
+                result_obj["type"] = "fail"
+            else:
+                result_obj["type"] = "error"
+
+            name, reasons, *_ = result.split('-'*70)
+            result_obj["test_name"] = name[name.index(':')+1 : ].strip()
+
+            result_obj["reasons"] = []
+            res = ""
+            for reason in reasons.splitlines(keepends=True):
+                if reason[0].isspace:
+                    res += reason
+                    continue
+                result_obj["reasons"].append(res)
+                res = reason
+            # they always end with a whitespace line
+            # so we need to manually add the last reason
+            result_obj["reasons"].append(res)
+
+            results_obj["results"].append(result_obj)
+
+    with open(f"{path}/{commit_id}.json", "w", encoding="utf-8") as resultfile:
+        json.dump(results_obj, resultfile)
 
 def dispatch_tests(server: Dispatcher, commit_id: str) -> None:
     """
     shared dispatcher code
-    sends a runtest request to a free test runner
-    if none are available, it will check again in 2 seconds
+    If none are available, it will check again in 2 seconds
     Once accepted, it will move the commit id to the dispatched_commits dict
     and log the test runner it was assigned to as the value
     """
@@ -189,6 +234,9 @@ def serve() -> None:
     Starts the dispatcher server
     Opens a socket on the given host and port
     Services requests from the observer and test runners using DispatcherHandler
+
+    Example:
+        python3 dispatcher.py --host=localhost --port=8888 --results=web/static
     """
 
     parser = argparse.ArgumentParser()
@@ -200,9 +248,14 @@ def serve() -> None:
                         help="dispatcher's port, by default it uses 8888",
                         default=8888,
                         action="store")
+    parser.add_argument("--results", type=str, default=None, action="store",
+                        help="directory to store the json results of the tests")
+
     args = parser.parse_args()
+
     server = Dispatcher((args.host, int(args.port)), DispatcherHandler)
     logger.debug("Serving on %s:%s", args.host, args.port)
+
 
     def runner_checker(server: Dispatcher) -> None:
         """
