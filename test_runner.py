@@ -22,6 +22,7 @@ import helpers
 from helpers import Address
 from exceptions import InvalidResponse, FailedSetup
 
+
 class Tester(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """
     Our test runner server
@@ -32,6 +33,7 @@ class Tester(socketserver.ThreadingMixIn, socketserver.TCPServer):
         dead = False - Status flag
         repo_folder: os.PathLike - Holds the path to the repo folder
     """
+
     dispatcher_server: Address
     last_ping: float = float("-inf")
     busy = False
@@ -45,7 +47,8 @@ class TestHandler(socketserver.BaseRequestHandler):
     This will handle incoming requests from the dispatcher
     This will also return the results of the tests to the dispatcher
     """
-	# matches commands like "commit:commit_id" and creates command and target groups
+
+    # matches commands like "commit:commit_id" and creates command and target groups
     command_re = re.compile(r"(\w+)(:.+)*")
 
     def handle(self) -> None:
@@ -88,7 +91,6 @@ class TestHandler(socketserver.BaseRequestHandler):
         else:
             self.request.sendall("Invalid command".encode())
 
-
     def run_tests(self, commit_id: str, repo_folder: os.PathLike) -> None:
         """
         Runs the tests for the given commit.
@@ -100,24 +102,25 @@ class TestHandler(socketserver.BaseRequestHandler):
         assert isinstance(self.server, Tester)
 
         # setup: update repo to the commit id state
-        subprocess.call(["./test_runner_script.sh",
-                            repo_folder, commit_id])
+        subprocess.call(["./test_runner_script.sh", repo_folder, commit_id])
         # run the tests
         # NOTE: We only run the tests in the tests folder
         test_folder = os.path.join(repo_folder, "tests")
         # loads all the tests for the given commit
         suite = unittest.TestLoader().discover(
-                test_folder, top_level_dir=self.server.repo_folder) # type: ignore
-
+            test_folder, top_level_dir=str(self.server.repo_folder)
+        )  # type: ignore
 
         with io.StringIO() as output:
             # writes newlines as '\n' no matter how textTestRunner returns them
             unittest.TextTestRunner(stream=output).run(suite)
             content = output.getvalue()
             # give the dispatcher the results
-            helpers.communicate(self.server.dispatcher_server.host,
-                                self.server.dispatcher_server.port,
-                                f"results:{commit_id}:{len(content)}:{content}")
+            helpers.communicate(
+                self.server.dispatcher_server.host,
+                self.server.dispatcher_server.port,
+                f"results:{commit_id}:{len(content)}:{content}",
+            )
 
 
 def connect_range(runner: Address, tries: int) -> Optional[Tester]:
@@ -145,10 +148,13 @@ def connect_range(runner: Address, tries: int) -> Optional[Tester]:
                 runner_port += 1
                 continue
 
-            print(f"Could not bind to ports in range \
-                    {runner.port}-{runner.port + tries}")
+            print(
+                f"Could not bind to ports in range \
+                    {runner.port}-{runner.port + tries}"
+            )
             break
     return None
+
 
 def serve() -> None:
     """
@@ -160,20 +166,29 @@ def serve() -> None:
     """
     range_start = 8900
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host",
-                        help="runner's host, by default it uses localhost",
-                        default="localhost",
-                        action="store")
-    parser.add_argument("--port",
-                        help=f"runner's port, by default it uses values >={range_start}",
-                        action="store")
-    parser.add_argument("--dispatcher-server",
-                        help="dispatcher host:port, by default it uses " \
-                        "localhost:8888",
-                        default="localhost:8888",
-                        action="store")
-    parser.add_argument("repo", metavar="REPO", type=str,
-                        help="path to the repository this will observe")
+    parser.add_argument(
+        "--host",
+        help="runner's host, by default it uses localhost",
+        default="localhost",
+        action="store",
+    )
+    parser.add_argument(
+        "--port",
+        help=f"runner's port, by default it uses values >={range_start}",
+        action="store",
+    )
+    parser.add_argument(
+        "--dispatcher-server",
+        help="dispatcher host:port, by default it uses " "localhost:8888",
+        default="localhost:8888",
+        action="store",
+    )
+    parser.add_argument(
+        "repo",
+        metavar="REPO",
+        type=str,
+        help="path to the repository this will observe",
+    )
     args = parser.parse_args()
 
     runner = Address(args.host, range_start)  # default port
@@ -190,9 +205,11 @@ def serve() -> None:
     # connect to the dispatcher
     dispatcher_host, dispatcher_port = args.dispatcher_server.split(":")
     server.dispatcher_server = Address(dispatcher_host, int(dispatcher_port))
-    response = helpers.communicate(server.dispatcher_server.host,
-                                   server.dispatcher_server.port,
-                                   f"register:{runner.host}:{runner.port}")
+    response = helpers.communicate(
+        server.dispatcher_server.host,
+        server.dispatcher_server.port,
+        f"register:{runner.host}:{runner.port}",
+    )
     if response != "OK":
         raise InvalidResponse("Can't register with dispatcher!")
 
@@ -202,6 +219,7 @@ def serve() -> None:
         if since the dispatcher may not have the same host/port
         when it comes back up.
         """
+
         def shutdown():
             server.dead = True
             server.shutdown()
@@ -212,9 +230,10 @@ def serve() -> None:
             if (time.time() - server.last_ping) > 10:
                 try:
                     response = helpers.communicate(
-                                       server.dispatcher_server.host,
-                                       int(server.dispatcher_server.port),
-                                       "status")
+                        server.dispatcher_server.host,
+                        int(server.dispatcher_server.port),
+                        "status",
+                    )
                     if response != "OK":
                         print("Dispatcher is no longer functional")
                         shutdown()
@@ -241,6 +260,7 @@ def serve() -> None:
         print(f"Unexpected error: {err}")
         print("Shutting down server")
         server.server_close()
+
 
 if __name__ == "__main__":
     serve()

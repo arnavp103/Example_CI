@@ -1,0 +1,9 @@
+#!/usr/bin/env python
+
+# this file has a symlink to the .git/hooks folder
+# this way it can be entered into vcs while still being executable
+
+import os
+import subprocess
+
+print("post commit hook")

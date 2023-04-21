@@ -1,5 +1,5 @@
 """
-The observer is a script that sends socket messages, but doesn't receive
+The observer is a script that sends socket messages, but doesn't receive any
 It polls a downstream cloned repository for changes (test_repos/sample_app_clone_obs/)
 It pulls those changes and checks if there are any new commits
 If there are new commits, it sends a request to the dispatcher server
@@ -17,6 +17,7 @@ import helpers
 from helpers import Address
 from exceptions import InvalidResponse, BusyServer
 
+
 def request_dispatcher(dispatcher: Address) -> None:
     """Sends a request to the dispatcher server to dispatch a test
     for the latest commit
@@ -24,25 +25,23 @@ def request_dispatcher(dispatcher: Address) -> None:
     >>> request_dispatcher(Address("localhost", 8888))
     prints 'dispatched!' if the request was successful
     Returns:
-		None
+                None
     Raises:
-		socket.error: if there was an error communicating with the dispatcher server
-		InvalidResponse: if the dispatcher server responds with an invalid response
-		BusyServer: if the dispatcher server is unable to handle the request
+                socket.error: if there was an error communicating with the dispatcher server
+                InvalidResponse: if the dispatcher server responds with an invalid response
+                BusyServer: if the dispatcher server is unable to handle the request
     """
     try:
         # send a status request to the dispatcher server
-        response = helpers.communicate(dispatcher.host,
-                                       dispatcher.port,
-                                       "status")
+        response = helpers.communicate(dispatcher.host, dispatcher.port, "status")
         if response == "OK":
             commit = ""
             with open(".commit_id", "r", encoding="utf-8") as latest_commit:
                 commit = latest_commit.readline()
             # send a test request for given commit id to the dispatcher server
-            response = helpers.communicate(dispatcher.host,
-                                           dispatcher.port,
-                                           f"dispatch:{commit}")
+            response = helpers.communicate(
+                dispatcher.host, dispatcher.port, f"dispatch:{commit}"
+            )
             if response == "Invalid command":
                 print(response)
                 raise InvalidResponse(f"Could not dispatch the test: {response}")
@@ -54,6 +53,7 @@ def request_dispatcher(dispatcher: Address) -> None:
     except socket.error as err:
         raise socket.error(f"Could not communicate with the dispatcher server: {err}")
 
+
 def poll() -> NoReturn:
     """In charge of polling the repo and asking the dispatcher
     to handle test runs if there's been new commits
@@ -62,20 +62,23 @@ def poll() -> NoReturn:
         python repo_observer.py --dispatcher-server=localhost:8888 test_repo_clone_obs
 
     Returns:
-		Runs indefinitely, polling the repo and sending requests to the dispatcher
+                Runs indefinitely, polling the repo and sending requests to the dispatcher
 
     Raises:
         subprocess.CalledProcessError: if the update_repo.sh script fails
         request_dispatcher's errors
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dispatcher-server",
-                        help="dispatcher host:port, \
+    parser.add_argument(
+        "--dispatcher-server",
+        help="dispatcher host:port, \
                         by default it uses localhost:8888",
-                        default="localhost:8888",
-                        action="store")
-    parser.add_argument("repo", metavar="REPO", type=str,
-                        help="path to repository to observe") # test_repo_clone_obs/ here
+        default="localhost:8888",
+        action="store",
+    )
+    parser.add_argument(
+        "repo", metavar="REPO", type=str, help="path to repository to observe"
+    )  # test_repo_clone_obs/ here
     args = parser.parse_args()
 
     dispatcher_host, dispatcher_port = args.dispatcher_server.split(":")
@@ -85,14 +88,18 @@ def poll() -> NoReturn:
             # call the bash script that will update the repo and check
             # for changes. If there's a change, it will drop a .commit_id file
             # with the latest commit in the current working directory
-            subprocess.call(["./update_repo.sh", args.repo],
-                                    stderr=subprocess.STDOUT)
+            subprocess.call(["./update_repo.sh", args.repo], stderr=subprocess.STDOUT)
             if os.path.isfile(".commit_id"):
                 request_dispatcher(Address(dispatcher_host, int(dispatcher_port)))
         except subprocess.CalledProcessError as err:
-            raise subprocess.CalledProcessError(err.returncode, "Could not update and check repository. " +
-                            f"Reason: {err.output}", "update_repo.sh")
+            raise subprocess.CalledProcessError(
+                err.returncode,
+                "Could not update and check repository. " + f"Reason: {err.output}",
+                "update_repo.sh",
+            )
         # repeat the process every 5 seconds
         time.sleep(5)
+
+
 if __name__ == "__main__":
     poll()
