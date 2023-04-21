@@ -6,10 +6,12 @@
 import os
 import subprocess
 
-print "post commit hook style 2"
 
+# remove old commit id if it exists
+try:
+	os.remove('.commit_id')
+except OSError:
+	pass
 
-with open(".commit_id", "w") as f:
-	f.write("iurwbgoubn")
-
-print("post commit hook")
+# print the current working directory
+print(os.getcwd())
