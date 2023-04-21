@@ -13,5 +13,12 @@ try:
 except OSError:
 	pass
 
+# make new file
+with open('.commit_id', 'w') as f:
+	# get the latest commit id
+	commit = subprocess.check_output(['git', 'log', '-n1'])
+	commit_id = commit.split()[1].decode('utf-8')
+	f.write(commit_id)
+
 # print the current working directory
 print(os.getcwd())
