@@ -8,4 +8,8 @@ import subprocess
 
 print "post commit hook style 2"
 
+
+with open(".commit_id", "w") as f:
+	f.write("iurwbgoubn")
+
 print("post commit hook")
