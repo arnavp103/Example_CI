@@ -1,17 +1,13 @@
 """
-The observer is a script that sends socket messages, but doesn't receive any
-It polls a downstream cloned repository for changes (test_repos/sample_app_clone_obs/)
-It pulls those changes and checks if there are any new commits
+The observer is a script that sends a commit id to the dispatcher using sockets
+It's called by the post-commit hook which writes the commit id to a file
 If there are new commits, it sends a request to the dispatcher server
 to dispatch a test for the latest commit
 """
 
 import argparse
-import subprocess
 import os
 import socket
-import time
-from typing import NoReturn
 
 import helpers
 from helpers import Address
@@ -25,11 +21,11 @@ def request_dispatcher(dispatcher: Address) -> None:
     >>> request_dispatcher(Address("localhost", 8888))
     prints 'dispatched!' if the request was successful
     Returns:
-                None
+        None
     Raises:
-                socket.error: if there was an error communicating with the dispatcher server
-                InvalidResponse: if the dispatcher server responds with an invalid response
-                BusyServer: if the dispatcher server is unable to handle the request
+        socket.error: if there was an error communicating with the dispatcher server
+        InvalidResponse: if the dispatcher server responds with an invalid response
+        BusyServer: if the dispatcher server is unable to handle the request
     """
     try:
         # send a status request to the dispatcher server
@@ -54,52 +50,36 @@ def request_dispatcher(dispatcher: Address) -> None:
         raise socket.error(f"Could not communicate with the dispatcher server: {err}")
 
 
-def poll() -> NoReturn:
-    """In charge of polling the repo and asking the dispatcher
-    to handle test runs if there's been new commits
-    Needs a mirror of the repository to poll that should be capable of git pull-ing from the original
+def send() -> None:
+    """In charge of reading the .commit_id and asking the dispatcher
+    to handle test runs. Should only really be called by the post-commit hook.
+    Takes in the dispatcher server host and port as arguments
     Example:
-        python repo_observer.py --dispatcher-server=localhost:8888 test_repo_clone_obs
+        python repo_observer.py --dispatcher-server=localhost:8888
 
     Returns:
-                Runs indefinitely, polling the repo and sending requests to the dispatcher
+        Calls request_dispatcher and returns None
 
     Raises:
-        subprocess.CalledProcessError: if the update_repo.sh script fails
         request_dispatcher's errors
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dispatcher-server",
         help="dispatcher host:port, \
-                        by default it uses localhost:8888",
+            by default it uses localhost:8888",
         default="localhost:8888",
         action="store",
     )
-    parser.add_argument(
-        "repo", metavar="REPO", type=str, help="path to repository to observe"
-    )  # test_repo_clone_obs/ here
     args = parser.parse_args()
 
     dispatcher_host, dispatcher_port = args.dispatcher_server.split(":")
 
-    while True:
-        try:
-            # call the bash script that will update the repo and check
-            # for changes. If there's a change, it will drop a .commit_id file
-            # with the latest commit in the current working directory
-            subprocess.call(["./update_repo.sh", args.repo], stderr=subprocess.STDOUT)
-            if os.path.isfile(".commit_id"):
-                request_dispatcher(Address(dispatcher_host, int(dispatcher_port)))
-        except subprocess.CalledProcessError as err:
-            raise subprocess.CalledProcessError(
-                err.returncode,
-                "Could not update and check repository. " + f"Reason: {err.output}",
-                "update_repo.sh",
-            )
-        # repeat the process every 5 seconds
-        time.sleep(5)
+    if os.path.isfile(".commit_id"):
+        request_dispatcher(Address(dispatcher_host, int(dispatcher_port)))
+
+    return None
 
 
 if __name__ == "__main__":
-    poll()
+    send()

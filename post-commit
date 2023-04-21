@@ -1,10 +1,13 @@
 #!/usr/bin/python3
 
-# this file has a symlink to the .git/hooks folder
+# this file has a symlink to the .git/hooks folder of the test repo
 # this way it can be entered into vcs while still being executable
 
 import os
 import subprocess
+
+# change working directory to where the ci server is
+os.chdir('../..')
 
 
 # remove old commit id if it exists
@@ -20,5 +23,7 @@ with open('.commit_id', 'w') as f:
 	commit_id = commit.split()[1].decode('utf-8')
 	f.write(commit_id)
 
-# print the current working directory
-print(os.getcwd())
+# call the repo_observer
+# fill in the server name and port
+# e.g. python repo_observer.py --dispatcher-server=localhost:8888
+subprocess.call(["python", "repo_observer.py", "--dispatcher-server=localhost:8888"])

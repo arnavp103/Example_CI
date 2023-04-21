@@ -6,6 +6,7 @@ import socket
 from dataclasses import dataclass
 from typing import Tuple
 
+
 def communicate(host: str, port: int, request: str) -> str:
     """
     Sends a request to the server and returns the response
@@ -27,6 +28,7 @@ def communicate(host: str, port: int, request: str) -> str:
         response = sock.recv(1024).decode()
         return response
 
+
 def receive_len(sock: socket.socket, message: str) -> Tuple[socket.socket, str]:
     """
     Receives a socket and a message of the form
@@ -41,7 +43,7 @@ def receive_len(sock: socket.socket, message: str) -> Tuple[socket.socket, str]:
     length = int(message.split(":")[2])
     # if the message has a lot of ':' in it then we overshoot how much to recv but we strip anyways
     amount_received = sum([len(x) for x in message.split(":")[3:]])
-    
+
     if amount_received >= length:
         return sock, message
 
@@ -50,12 +52,11 @@ def receive_len(sock: socket.socket, message: str) -> Tuple[socket.socket, str]:
     return sock, message + data
 
 
-
 @dataclass
 class Address:
     """
     Stores the host and port of a server
     """
+
     host: str
     port: int
-
