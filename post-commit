@@ -6,4 +6,6 @@
 import os
 import subprocess
 
+print "post commit hook style 2"
+
 print("post commit hook")
