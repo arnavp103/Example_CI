@@ -6,7 +6,6 @@ to dispatch a test for the latest commit
 """
 
 import argparse
-import os
 import socket
 
 import helpers
@@ -14,11 +13,11 @@ from helpers import Address
 from exceptions import InvalidResponse, BusyServer
 
 
-def request_dispatcher(dispatcher: Address) -> None:
+def request_dispatcher(dispatcher: Address, commit_id: str) -> None:
     """Sends a request to the dispatcher server to dispatch a test
     for the latest commit
     Example:
-    >>> request_dispatcher(Address("localhost", 8888))
+    >>> request_dispatcher(Address("localhost", 8888), "17eb587b44f6480db31987602f703c7f7b8628cb")
     prints 'dispatched!' if the request was successful
     Returns:
         None
@@ -32,11 +31,9 @@ def request_dispatcher(dispatcher: Address) -> None:
         response = helpers.communicate(dispatcher.host, dispatcher.port, "status")
         if response == "OK":
             commit = ""
-            with open(".commit_id", "r", encoding="utf-8") as latest_commit:
-                commit = latest_commit.readline()
             # send a test request for given commit id to the dispatcher server
             response = helpers.communicate(
-                dispatcher.host, dispatcher.port, f"dispatch:{commit}"
+                dispatcher.host, dispatcher.port, f"dispatch:{commit_id}"
             )
             if response == "Invalid command":
                 print(response)
@@ -51,14 +48,15 @@ def request_dispatcher(dispatcher: Address) -> None:
 
 
 def send() -> None:
-    """In charge of reading the .commit_id and asking the dispatcher
+    """In charge of reading the commit_id and asking the dispatcher
     to handle test runs. Should only really be called by the post-commit hook.
-    Takes in the dispatcher server host and port as arguments
+    Takes in the dispatcher server host, port, and commit id as arguments
+    Calls request_dispatcher to dispatch tests according to the repo at commit_id
     Example:
-        python repo_observer.py --dispatcher-server=localhost:8888
+        python repo_observer.py --dispatcher-server=localhost:8888 --commit-id=17eb587b44f6480db31987602f703c7f7b8628cb
 
     Returns:
-        Calls request_dispatcher and returns None
+        Side Effect Only - None
 
     Raises:
         request_dispatcher's errors
@@ -71,12 +69,17 @@ def send() -> None:
         default="localhost:8888",
         action="store",
     )
+    parser.add_argument(
+        "--commit-id",
+        help="commit id to be sent to the dispatcher server",
+        action="store",
+    )
     args = parser.parse_args()
 
     dispatcher_host, dispatcher_port = args.dispatcher_server.split(":")
 
-    if os.path.isfile(".commit_id"):
-        request_dispatcher(Address(dispatcher_host, int(dispatcher_port)))
+
+    request_dispatcher(Address(dispatcher_host, int(dispatcher_port)), args.commit_id)
 
     return None
 

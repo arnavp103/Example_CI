@@ -220,7 +220,7 @@ def dispatch_tests(server: Dispatcher, commit_id: str) -> None:
                                            runner.port,
                                            f"runtest:{commit_id}")
             if response == "OK":
-                logger.debug("adding id %s to %s:%s",
+                logger.debug("tracking id %s with runner at %s:%s",
                              commit_id, runner.host, runner.port)
                 server.dispatched_commits[commit_id] = runner
                 if commit_id in server.pending_commits:

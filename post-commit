@@ -6,24 +6,19 @@
 import os
 import subprocess
 
+SERVER_AND_PORT = "localhost:8888"
+
 commit = subprocess.check_output(['git', 'log', '-n1'])
 commit_id = commit.split()[1].decode('utf-8')
 
-# change working directory to where the ci server is
+print("Post commit hook is dispatching tests against commit: " + commit_id)
+
+# change working directory to where the ci server scripts are
 os.chdir('../..')
 
 
-# remove old commit id if it exists
-try:
-	os.remove('.commit_id')
-except OSError:
-	pass
-
-# make new file
-with open('.commit_id', 'w') as f:
-	f.write(commit_id)
 
 # call the repo_observer
-# fill in the server name and port
-# e.g. python repo_observer.py --dispatcher-server=localhost:8888
-subprocess.call(["python", "repo_observer.py", "--dispatcher-server=localhost:8888"])
+# fill in the server name port and commit id
+# e.g. python repo_observer.py --dispatcher-server=localhost:8888 --commit-id=17eb587b44f6480db31987602f703c7f7b8628cb
+subprocess.call(["python", "repo_observer.py", f"--dispatcher-server={SERVER_AND_PORT}", f"--commit-id={commit_id}"])
