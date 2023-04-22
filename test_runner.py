@@ -109,6 +109,7 @@ class TestHandler(socketserver.BaseRequestHandler):
         # loads all the tests for the given commit
         suite = unittest.TestLoader().discover(
             test_folder, top_level_dir=str(self.server.repo_folder)
+            
         )  # type: ignore
 
         with io.StringIO() as output:

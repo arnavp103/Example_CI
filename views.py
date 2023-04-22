@@ -1,4 +1,5 @@
-import os, glob
+import os
+import glob
 
 from flask import Flask
 from flask import render_template
@@ -23,16 +24,10 @@ def home():
     return render_template("index.html")
 
 @app.route("/api/data")
-def get_data():
+def get_last_commit():
     path = 'web/static'
-    latestTime = float("-inf")
-    latest = ""
-    for filename in glob.glob(os.path.join(path, '*.json')):
-        curr = os.path.getmtime(filename) # returns the time in s since epoch
-        logger.debug("%s was last changed at %s", filename, curr)
-        if curr > latestTime:
-            latestTime = curr
-            latest = filename
+    files = glob.glob(f"{path}/*.json")
+    latest = max(files, key=os.path.getctime)   # get last created file
     to_send = latest.split("/")[-1]
     logger.debug("to be sent %s", to_send)
     return app.send_static_file(to_send)

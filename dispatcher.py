@@ -88,7 +88,7 @@ class DispatcherHandler(socketserver.BaseRequestHandler):
         command_groups = self.command_re.match(self.data)
         if not command_groups:
             self.request.sendall("Invalid command".encode())
-            logger.info("Invalid command")
+            logger.info("Invalid command %s", self.data)
             return
 
         command = command_groups.group(1)
@@ -174,7 +174,7 @@ def create_json_result_file(commit_id: str, results: str, path: os.PathLike) -> 
         pass
     else:
         for result in results.split('='*70)[1:]:
-            logger.debug("result: %s", result)
+            # logger.debug("result: %s", result)
             result_obj = {}
 
             if result[:result.index(':')].strip() == "FAIL":
@@ -254,6 +254,7 @@ def serve() -> None:
     args = parser.parse_args()
 
     server = Dispatcher((args.host, int(args.port)), DispatcherHandler)
+    server.target = args.results
     logger.debug("Serving on %s:%s", args.host, args.port)
 
 

@@ -6,6 +6,9 @@
 import os
 import subprocess
 
+commit = subprocess.check_output(['git', 'log', '-n1'])
+commit_id = commit.split()[1].decode('utf-8')
+
 # change working directory to where the ci server is
 os.chdir('../..')
 
@@ -18,9 +21,6 @@ except OSError:
 
 # make new file
 with open('.commit_id', 'w') as f:
-	# get the latest commit id
-	commit = subprocess.check_output(['git', 'log', '-n1'])
-	commit_id = commit.split()[1].decode('utf-8')
 	f.write(commit_id)
 
 # call the repo_observer

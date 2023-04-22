@@ -6,7 +6,5 @@ from . import views  # For import side-effects of setting up routes.
 
 
 
-
-
-
-
+# Run the webserver as:
+# flask --app <webapp/name> run --de
